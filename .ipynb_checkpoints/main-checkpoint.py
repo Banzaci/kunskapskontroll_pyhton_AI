@@ -83,13 +83,13 @@ def cheap_vs_expensive(df):
 def main():
     df = load_housing()
 
-    rows(df)
+    # rows(df)
     missing_values(df)
-    stats(df)
+    # stats(df)
 
-    plot_price_distribution(df)
-    plot_correlation(df)
-    price_by_income(df)
+    # plot_price_distribution(df)
+    # plot_correlation(df)
+    # price_by_income(df)
 
     cheap_vs_expensive(df)
 
