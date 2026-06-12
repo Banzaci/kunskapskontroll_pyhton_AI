@@ -1,9 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 
-sns.set(style="whitegrid")
 
 # Laddar in datasetet (CSV-fil) och returnerar det som en DataFrame
 def load_housing():
@@ -18,11 +16,15 @@ def rows(df):
 
 
 def missing_values(df):
-  # Visar hur många saknade värden som finns per kolumn
-  missing = df.isnull().sum()
-  missing = missing[missing > 0]
+    missing = df.isnull().sum()
+    missing = missing[missing > 0]
 
-  print("\nMissing values:\n", missing)
+    for column in missing.index:
+        median = df[column].median()
+        df[column] = df[column].fillna(median)
+        print(f"Filled {column} with median: {median}")
+
+    print("\nMissing values before fill:\n", missing)
 
 # Visar statistisk sammanfattning av datasetet
 # (medelvärde, min, max, standardavvikelse osv.)
@@ -33,7 +35,6 @@ def stats(df):
 # hur många hus som finns i olika pris-intervall
 def plot_price_distribution(df):
     plt.figure(figsize=(8,5))
-    sns.histplot(df["median_house_value"], bins=50, kde=True)
     plt.title("House Price Distribution")
     plt.xlabel("Price")
     plt.show()
@@ -54,11 +55,6 @@ def plot_correlation(df):
 # (undersöker om rikare områden har dyrare hus)
 def price_by_income(df):
     plt.figure(figsize=(8,5))
-    sns.scatterplot(
-        x=df["median_income"],
-        y=df["median_house_value"],
-        alpha=0.3
-    )
     plt.title("House Value vs Income")
     plt.xlabel("Median income")
     plt.ylabel("House value")
@@ -82,15 +78,12 @@ def cheap_vs_expensive(df):
 
 def main():
     df = load_housing()
-
     rows(df)
     missing_values(df)
     stats(df)
-
     plot_price_distribution(df)
     plot_correlation(df)
     price_by_income(df)
-
     cheap_vs_expensive(df)
 
 if __name__ == "__main__":
