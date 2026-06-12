@@ -75,16 +75,61 @@ def cheap_vs_expensive(df):
     print("\n--- Number of cheap vs expensive  ---")
     print(df["price_category"].value_counts())
 
+def remove_duplicates(df):
+    before = len(df)
+
+    df.drop_duplicates(inplace=True)
+
+    after = len(df)
+
+    print(f"\nRemoved {before - after} duplicate rows")
+
+def avg_price_per_category(df):
+    result = df.groupby("ocean_proximity")["median_house_value"].mean().sort_values(ascending=False)
+
+    print("\n--- Average house price per ocean proximity category ---")
+    print(result)
+
+def ocean_distance_proxy(df):
+    mapping = {
+        "NEAR BAY": 1,
+        "<1H OCEAN": 2,
+        "NEAR OCEAN": 3,
+        "ISLAND": 4,
+        "INLAND": 5
+    }
+
+    df["ocean_distance_score"] = df["ocean_proximity"].map(mapping)
+
+    result = df.groupby("ocean_distance_score")["median_house_value"].mean()
+
+    print("\n--- Average price vs distance proxy (lower = closer to ocean) ---")
+    print(result)
+
+def conclusions(df):
+    corr = df.corr(numeric_only=True)["median_house_value"]
+    corr = corr.sort_values(ascending=False)
+
+    print("\n--- Conclusions ---")
+    print("Strongest positive factors:")
+    print(corr.head())
+
+    print("\nStrongest negative factors:")
+    print(corr.tail())
 
 def main():
     df = load_housing()
-    rows(df)
     missing_values(df)
+    remove_duplicates(df)
+    avg_price_per_category(df)
+    ocean_distance_proxy(df)
+    rows(df)
     stats(df)
     plot_price_distribution(df)
     plot_correlation(df)
     price_by_income(df)
     cheap_vs_expensive(df)
+    conclusions(df)
 
 if __name__ == "__main__":
   main()
