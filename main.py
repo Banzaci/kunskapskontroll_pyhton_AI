@@ -3,66 +3,90 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-# Laddar in datasetet (CSV-fil) och returnerar det som en DataFrame
+# ---------------- LOAD ----------------
+# Läser in housing-datasetet från CSV-fil
 def load_housing():
-  return pd.read_csv("data/housing.csv")
-
-# Visar första 10 raderna i datasetet
-def rows(df):
-  print("\n--- Init ---")
-  print(df.head(10))
-  # Visar antal rader och kolumner
-  print("\nShape:", df.shape)
+    return pd.read_csv("data/housing.csv")
 
 
+# ---------------- CLEANING ----------------
+
+# Hanterar saknade värden i datasetet
+# Fyller numeriska kolumner med medianvärdet
 def missing_values(df):
-    missing = df.isnull().sum()
-    missing = missing[missing > 0]
+    missing = df.isnull().sum()          # räknar NaN per kolumn
+    missing = missing[missing > 0]       # filtrerar endast kolumner med saknade värden
 
+    print("\nMissing BEFORE fill:\n", missing)
+
+    # Loopar igenom alla kolumner med saknade värden
     for column in missing.index:
-        median = df[column].median()
-        df[column] = df[column].fillna(median)
-        print(f"Filled {column} with median: {median}")
+        if pd.api.types.is_numeric_dtype(df[column]):  # endast numeriska kolumner
+            median = df[column].median()                # beräknar median
+            df[column] = df[column].fillna(median)      # fyller saknade värden
+            print(f"Filled {column} with median: {median}")
 
-    print("\nMissing values before fill:\n", missing)
+
+# Tar bort eventuella duplicerade rader i datasetet
+def remove_duplicates(df):
+    before = len(df)                # antal rader före
+    df.drop_duplicates(inplace=True)
+    after = len(df)                 # antal rader efter
+
+    print(f"\nRemoved {before - after} duplicate rows")
+
+
+# Kodar om kategorisk variabel till numeriska värden
+# (ocean proximity -> integer labels)
+def encode_categorical(df):
+    df["ocean_proximity"] = df["ocean_proximity"].astype("category").cat.codes
+
+
+# ---------------- EXPLORATORY DATA ANALYSIS (EDA) ----------------
+
+# Visar första raderna och datats struktur
+def rows(df):
+    print("\n--- INIT ---")
+    print(df.head(10))      # första 10 rader
+    print("\nShape:", df.shape)  # antal rader och kolumner
+
 
 # Visar statistisk sammanfattning av datasetet
-# (medelvärde, min, max, standardavvikelse osv.)
+# (mean, min, max, std osv.)
 def stats(df):
-  print("\n--- Describe ---")
-  print(df.describe())
+    print("\n--- DESCRIBE ---")
+    print(df.describe())
 
-# hur många hus som finns i olika pris-intervall
+
+# Visar fördelning av huspriser
 def plot_price_distribution(df):
     plt.figure(figsize=(8,5))
+    plt.hist(df["median_house_value"], bins=50)
     plt.title("House Price Distribution")
     plt.xlabel("Price")
+    plt.ylabel("Count")
     plt.show()
 
 
-# Visar hur starkt varje variabel påverkar huspriset
-# Högre värde = starkare påverkan
-# Lägre/negativt värde = inte viktigt
+# Visar korrelation mellan alla variabler och huspris
 def plot_correlation(df):
-    corr = df.corr(numeric_only=True)["median_house_value"]
-    # Sorterar så vi ser viktigast först
-    corr = corr.sort_values(ascending=False)
-    print("\nCorrelation with house price:\n")
+    corr = df.corr(numeric_only=True)["median_house_value"].sort_values(ascending=False)
+
+    print("\n--- Correlation with house price ---")
     print(corr)
 
 
 # Visar samband mellan inkomst och huspris
-# (undersöker om rikare områden har dyrare hus)
 def price_by_income(df):
     plt.figure(figsize=(8,5))
+    plt.scatter(df["median_income"], df["median_house_value"], alpha=0.3)
     plt.title("House Value vs Income")
     plt.xlabel("Median income")
     plt.ylabel("House value")
     plt.show()
 
 
-# Delar upp datasetet i "billiga" och "dyra" hus
-# antalet visas, tex cheap: 10323st
+# Delar upp hus i dyra och billiga baserat på medianpris
 def cheap_vs_expensive(df):
     median = df["median_house_value"].median()
 
@@ -72,24 +96,24 @@ def cheap_vs_expensive(df):
         "cheap"
     )
 
-    print("\n--- Number of cheap vs expensive  ---")
+    print("\n--- Cheap vs Expensive ---")
     print(df["price_category"].value_counts())
 
-def remove_duplicates(df):
-    before = len(df)
 
-    df.drop_duplicates(inplace=True)
+# ---------------- ANALYSIS ----------------
 
-    after = len(df)
-
-    print(f"\nRemoved {before - after} duplicate rows")
-
+# Räknar genomsnittligt huspris per havsnärhetskategori
 def avg_price_per_category(df):
-    result = df.groupby("ocean_proximity")["median_house_value"].mean().sort_values(ascending=False)
+    df["ocean_proximity_raw"] = df["ocean_proximity"]  # sparar original innan encoding
 
-    print("\n--- Average house price per ocean proximity category ---")
+    result = df.groupby("ocean_proximity_raw")["median_house_value"].mean().sort_values(ascending=False)
+
+    print("\n--- Average price per ocean category ---")
     print(result)
 
+
+# Skapar en "proxy" för avstånd till havet
+# (lägre värde = närmare havet)
 def ocean_distance_proxy(df):
     mapping = {
         "NEAR BAY": 1,
@@ -99,37 +123,47 @@ def ocean_distance_proxy(df):
         "INLAND": 5
     }
 
-    df["ocean_distance_score"] = df["ocean_proximity"].map(mapping)
+    df["ocean_distance_score"] = df["ocean_proximity_raw"].map(mapping)
 
     result = df.groupby("ocean_distance_score")["median_house_value"].mean()
 
-    print("\n--- Average price vs distance proxy (lower = closer to ocean) ---")
+    print("\n--- Price vs distance proxy ---")
     print(result)
 
-def conclusions(df):
-    corr = df.corr(numeric_only=True)["median_house_value"]
-    corr = corr.sort_values(ascending=False)
 
-    print("\n--- Conclusions ---")
-    print("Strongest positive factors:")
+# Sammanfattar vilka faktorer som påverkar huspris mest
+def conclusions(df):
+    corr = df.corr(numeric_only=True)["median_house_value"].sort_values(ascending=False)
+
+    print("\n--- CONCLUSIONS ---")
+    print("Top positive factors:")
     print(corr.head())
 
-    print("\nStrongest negative factors:")
+    print("\nTop negative factors:")
     print(corr.tail())
 
+
+# ---------------- MAIN ----------------
 def main():
     df = load_housing()
-    missing_values(df)
-    remove_duplicates(df)
-    avg_price_per_category(df)
-    ocean_distance_proxy(df)
-    rows(df)
-    stats(df)
-    plot_price_distribution(df)
-    plot_correlation(df)
-    price_by_income(df)
-    cheap_vs_expensive(df)
-    conclusions(df)
+
+    missing_values(df)        # steg 1: saknade värden
+    remove_duplicates(df)     # steg 2: dubletter
+
+    encode_categorical(df)    # steg 3: encoding
+
+    rows(df)                  # snabb översikt
+    stats(df)                 # statistik
+
+    plot_price_distribution(df)  # fördelning
+    price_by_income(df)          # inkomst vs pris
+    plot_correlation(df)         # korrelationer
+
+    avg_price_per_category(df)   # havsnärhet vs pris
+    ocean_distance_proxy(df)     # avståndsanalys
+
+    cheap_vs_expensive(df)       # klassificering
+    conclusions(df)              # slutsats
 
 if __name__ == "__main__":
-  main()
+    main()
